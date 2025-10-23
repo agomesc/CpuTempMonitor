@@ -55,7 +55,7 @@ class SystemMonitor : IDisposable
                 IsCpuEnabled = true,
                 IsGpuEnabled = false,
                 IsMemoryEnabled = true,
-                IsMotherboardEnabled = false,
+                IsMotherboardEnabled = true, // Habilitar motherboard para AMD
                 IsControllerEnabled = false,
                 IsNetworkEnabled = false,
                 IsStorageEnabled = false
@@ -96,18 +96,9 @@ class SystemMonitor : IDisposable
                         LogMessage($"  - {sensor.Name}: {sensor.Value}°C");
                     }
 
-                    var tempSensor = temperatureSensors.FirstOrDefault(s => s.Name.Contains("Core Average")) ??
-                                   temperatureSensors.FirstOrDefault(s => s.Name.Contains("Package")) ??
-                                   temperatureSensors.FirstOrDefault(s => s.Name.Contains("Tctl")) ??
-                                   temperatureSensors.FirstOrDefault(s => s.Name.Contains("Tdie")) ??
-                                   temperatureSensors.FirstOrDefault(s => s.Name.Contains("Core")) ??
-                                   temperatureSensors.FirstOrDefault();
-
-                    if (tempSensor?.Value.HasValue == true && tempSensor.Value.Value > 0)
-                    {
-                        info.Temperature = tempSensor.Value.Value;
-                        LogMessage($"Temperatura selecionada: {tempSensor.Name} = {info.Temperature}°C");
-                    }
+                    // TESTE: Forçar temperatura para verificar se o sistema funciona
+                    info.Temperature = 45.5f;
+                    LogMessage($"TESTE: Temperatura forçada para: {info.Temperature}°C");
 
                     // Clock da CPU
                     var clockSensors = hardware.Sensors
@@ -217,6 +208,69 @@ class SystemMonitor : IDisposable
         catch
         {
             // Ignora erros de log
+        }
+    }
+
+    private float? GetAMDTemperature(IHardware hardware, List<ISensor> temperatureSensors)
+    {
+        try
+        {
+            // Prioridade para sensores AMD
+            var tctlSensor = temperatureSensors.FirstOrDefault(s => s.Name.Contains("Tctl"));
+            var tdieSensor = temperatureSensors.FirstOrDefault(s => s.Name.Contains("Tdie"));
+            var ccxSensor = temperatureSensors.FirstOrDefault(s => s.Name.Contains("CCX"));
+            var coreSensor = temperatureSensors.FirstOrDefault(s => s.Name.Contains("Core") && !s.Name.Contains("Max"));
+
+            // Testar sensores na ordem de prioridade
+            if (tctlSensor?.Value.HasValue == true && tctlSensor.Value.Value > 0)
+            {
+                LogMessage($"AMD: Usando sensor Tctl = {tctlSensor.Value.Value}°C");
+                return tctlSensor.Value.Value;
+            }
+
+            if (tdieSensor?.Value.HasValue == true && tdieSensor.Value.Value > 0)
+            {
+                LogMessage($"AMD: Usando sensor Tdie = {tdieSensor.Value.Value}°C");
+                return tdieSensor.Value.Value;
+            }
+
+            if (ccxSensor?.Value.HasValue == true && ccxSensor.Value.Value > 0)
+            {
+                LogMessage($"AMD: Usando sensor CCX = {ccxSensor.Value.Value}°C");
+                return ccxSensor.Value.Value;
+            }
+
+            if (coreSensor?.Value.HasValue == true && coreSensor.Value.Value > 0)
+            {
+                LogMessage($"AMD: Usando sensor Core = {coreSensor.Value.Value}°C");
+                return coreSensor.Value.Value;
+            }
+
+            // Se chegou aqui, nenhum sensor AMD funcionou
+            LogMessage("AMD: Nenhum sensor AMD específico forneceu temperatura válida");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Erro ao obter temperatura AMD: {ex.Message}");
+            return null;
+        }
+    }
+
+    private float? GetTemperatureViaWMI()
+    {
+        try
+        {
+            LogMessage("Tentando WMI para temperatura...");
+            
+            // Método básico sem WMI por enquanto
+            LogMessage("WMI: Não implementado ainda");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Erro ao obter temperatura via WMI: {ex.Message}");
+            return null;
         }
     }
 
